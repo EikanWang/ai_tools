@@ -6,7 +6,6 @@ import shelve
 import logging
 from dotenv import load_dotenv
 import openai
-import nltk
 import tiktoken
 
 load_dotenv()
@@ -22,6 +21,8 @@ llm_urls = {
     "OpenAI" : "https://api.openai.com",
     "DeepSeek" : "https://api.deepseek.com"
 }
+
+ignored_authors = {"pytorchmergebot", "pytorch-bot[bot]", "facebook-github-bot"}
 
 def count_tokens(text, encoding_name='gpt2'):
     """
@@ -276,7 +277,9 @@ def apply_rules(item, rules):
     specified_user = rules.get('specified_user', '')
     if specified_user and not any(specified_user in comment['body'] for comment in item.comments + item.review_comments):
         logger.info(f"Filtering out '{item.title}' because it does not contain a comment tagging the user '{specified_user}'.")
-        return False
+        desc = item.body if item.body else ""
+        if desc.count('@') > rules['number_of_ccer']:
+            return False
 
     # Rule 3: Ignore titles starting with "DISABLED"
     if item.title.startswith("DISABLED"):
@@ -312,6 +315,7 @@ def main():
     parser.add_argument("--end-date", type=str, default=datetime.utcnow().strftime("%Y-%m-%d"), help="End date for fetching and filtering issues and PRs (YYYY-MM-DD format)")
     parser.add_argument("--db-path", type=str, default=None, help="Path to the database folder")
     parser.add_argument("--specified-user", type=str, default="", help="User to look for in comments (default: no filtering)")
+    parser.add_argument("--number-of-ccer", type=int, default=10, help="Number of CCERs in the comments")
     parser.add_argument("--log-level", type=str, default="WARNING", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
     parser.add_argument("--retrieve-only", action="store_true", help="Retrieve data only without filtering or dumping information")
     parser.add_argument("--dump-comments", action="store_true", help="Dump detailed comments and review comments for each item")
@@ -357,7 +361,8 @@ def main():
             rules = {
                 'start_date': filter_start_date,
                 'end_date': filter_end_date,
-                'specified_user': args.specified_user
+                'specified_user': args.specified_user,
+                'number_of_ccer': args.number_of_ccer
             }
 
             # Apply PR or issue only filters
