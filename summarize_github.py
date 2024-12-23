@@ -7,6 +7,7 @@ import logging
 from dotenv import load_dotenv
 import openai
 import tiktoken
+import sqlite3
 
 load_dotenv()
 
@@ -23,6 +24,12 @@ llm_urls = {
 }
 
 ignored_authors = {"pytorchmergebot", "pytorch-bot[bot]", "facebook-github-bot"}
+
+def init_db(db_path):
+    """
+    Initialize the database.
+    """
+    return sqlite3.connect(db_path)
 
 def count_tokens(text, encoding_name='gpt2'):
     """
@@ -77,7 +84,8 @@ def text_summarize(text_chunks, serving = "DeepSeek", instruction=None, context=
     return summaries
 
 class GitHubItem:
-    def __init__(self, title, url, description, submitter, tags, assignees, reviewers, created_at, comments, review_comments, state):
+    def __init__(self, number, title, url, description, submitter, tags, assignees, reviewers, created_at, comments, review_comments, state):
+        self.number = number
         self.title = title
         self.url = url
         self.description = description
@@ -92,6 +100,7 @@ class GitHubItem:
 
     def __str__(self):
         return (
+            f"Number: {self.number}\n"
             f"Title: {self.title}\n"
             f"URL: {self.url}\n"
             f"Description: {self.description}\n"
@@ -116,6 +125,61 @@ class GitHubItem:
             return "\n".join([str(self), comments_str, review_comments_str])
         else:
             return str(self)
+
+class GitHubItemDB:
+    def __init__(self, org, repo) -> None:
+        self._db_path = f"{org}_{repo}.db"
+
+    def __enter__(self):
+        self._db = sqlite3.connect(self._db_path)
+        self._cursor = self._db.cursor()
+        self._cursor.execute('''
+            CREATE TABLE IF NOT EXISTS github_items (
+                number TEXT PRIMARY KEY,
+                title TEXT,
+                url TEXT,
+                description TEXT,
+                submitter TEXT,
+                tags TEXT,
+                assignees TEXT,
+                reviewers TEXT,
+                created_at TEXT,
+                comments TEXT,
+                review_comments TEXT,
+                state TEXT
+            )
+        ''')
+        return self
+
+    def __getitem__(self, key):
+        cursor = self._db.cursor()
+        cursor.execute('SELECT * FROM github_items WHERE number = ?', (key,))
+        row = cursor.fetchone()
+        if not row:
+            raise KeyError(key)
+        return GitHubItem(*row)
+
+    def __setitem__(self, github_item: GitHubItem):
+        cursor = self._db.cursor()
+        cursor.execute('''
+            INSERT INTO github_items (number, title, url, description, submitter, tags, assignees, reviewers, created_at, comments, review_comments, state)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (github_item.number, github_item.title, github_item.url, github_item.description, github_item.submitter, github_item.tags, github_item.assignees, github_item.reviewers, github_item.created_at, github_item.comments, github_item.review_comments, github_item.state))
+        self._db.commit()
+
+    def __delitem__(self, key):
+        cursor = self._db.cursor()
+        cursor.execute('DELETE FROM github_items WHERE number = ?', (key,))
+        self._db.commit()
+
+    def __iter__(self):
+        cursor = self._db.cursor()
+        cursor.execute('SELECT * FROM github_items')
+        # Fetch all items and convert each item to github item and then return the iterator
+        return iter([GitHubItem(*row[1:]) for row in cursor.fetchall()])
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self._db.close()
 
 def refresh_items(repo, start_date, end_date, db):
     start_date_dt = datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%SZ")
@@ -229,6 +293,7 @@ def process_item(repo, item, db):
 
     logger.info(f"Adding or updating item '{item.title}' created by {submitter} on {created_at}")
     github_item = GitHubItem(
+        item.number,
         item.title,
         item.html_url,
         description,
@@ -277,7 +342,7 @@ def apply_rules(item, rules):
     specified_user = rules.get('specified_user', '')
     if specified_user and not any(specified_user in comment['body'] for comment in item.comments + item.review_comments):
         logger.info(f"Filtering out '{item.title}' because it does not contain a comment tagging the user '{specified_user}'.")
-        desc = item.body if item.body else ""
+        desc = item.description if item.description else ""
         if desc.count('@') > rules['number_of_ccer']:
             return False
 
