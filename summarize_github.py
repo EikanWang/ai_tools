@@ -199,9 +199,9 @@ def refresh_items(repo, start_date, end_date, db):
             github_item.reviewers = []
             github_item.state = item.state
             # commented out for efficiency
-            # if '/pull/' in item.html_url:  # To distinguish pull requests by URL pattern
-            #     pr = repo.get_pull(item.number)
-            #     github_item.reviewers = list(set([review.user.login for review in pr.get_reviews() if review.user]))
+            if '/pull/' in item.html_url:  # To distinguish pull requests by URL pattern
+                pr = repo.get_pull(item.number)
+                github_item.reviewers = list(set([review.user.login for review in pr.get_reviews() if review.user]))
             db[str(item.number)] = github_item
             continue
         process_item(repo, item, db)
@@ -326,7 +326,7 @@ def filter_items(items, rules):
             filtered_items.append(item)
     return filtered_items
 
-def apply_rules(item, rules):
+def apply_rules(item: GitHubItem, rules):
     """
     Check if a GitHub item satisfies the given filtering rules.
     """
@@ -340,18 +340,30 @@ def apply_rules(item, rules):
 
     # Rule 2: Comments containing tags of the specified user
     specified_user = rules.get('specified_user', '')
-    if specified_user and not any(specified_user in comment['body'] for comment in item.comments + item.review_comments):
+    # Lambda function to check if the specified user is not in the description
+    _not_in_desc = lambda : specified_user not in item.description
+    # Lambda function to check if the specified user is not in the comments
+    _not_in_comments = lambda : not any(specified_user in comment['body'] for comment in item.comments)
+    # Lambda function to check if the specified user is not in the reviewers
+    _not_in_reviewers = lambda : specified_user not in item.reviewers
+
+    if specified_user and _not_in_desc() and _not_in_comments() and _not_in_reviewers():
         logger.info(f"Filtering out '{item.title}' because it does not contain a comment tagging the user '{specified_user}'.")
+        return False
+
+    # Rule 3: Filter by the number of CCed users in the description
+    if specified_user and not _not_in_desc():
         desc = item.description if item.description else ""
         if desc.count('@') > rules['number_of_ccer']:
+            logger.info(f"Filtering out '{item.title}' because the description contains more than {rules['number_of_ccer']} CCed users.")
             return False
 
-    # Rule 3: Ignore titles starting with "DISABLED"
+    # Rule 4: Ignore titles starting with "DISABLED"
     if item.title.startswith("DISABLED"):
         logger.info(f"Filtering out '{item.title}' because the title starts with 'DISABLED'.")
         return False
 
-    # Rule 4: Ignore comments tagging or created by specific bots
+    # Rule 5: Ignore comments tagging or created by specific bots
     ignored_authors = {"pytorchmergebot", "pytorch-bot[bot]", "facebook-github-bot"}
     item.comments = [comment for comment in item.comments if comment['author'] not in ignored_authors]
     item.review_comments = [review_comment for review_comment in item.review_comments if review_comment['author'] not in ignored_authors]
