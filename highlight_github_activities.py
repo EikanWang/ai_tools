@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from github import Github
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import argparse
 import logging
@@ -82,7 +82,7 @@ class GitHubItem:
         }
 
 # Inquire GitHub activities
-def inquire_github_activities(repo, start_date, end_date, rules):
+def inquire_github_activities(repo, start_date, end_date, interval, rules):
     start_date_dt = datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%SZ")
     end_date_dt = datetime.strptime(end_date, "%Y-%m-%dT%H:%M:%SZ")
 
@@ -90,7 +90,8 @@ def inquire_github_activities(repo, start_date, end_date, rules):
 
     github_items = []
     for item in all_issues:
-        if item.created_at.replace(tzinfo=None) > end_date_dt:
+        # If interval is NOT set, stop early if the item is outside of the date range
+        if item.created_at.replace(tzinfo=None) > end_date_dt and interval == 0:
             logger.info("Reached items outside of date range. Stopping early.")
             break
 
@@ -129,12 +130,12 @@ def inquire_github_activities(repo, start_date, end_date, rules):
                 "created_at": comment.created_at.isoformat()
             })
 
-        if apply_rules(github_item, rules):
+        if apply_rules(github_item, interval, rules):
             github_items.append(github_item.serialize())
 
     return github_items
 
-def apply_rules(item: GitHubItem, rules):
+def apply_rules(item: GitHubItem, interval, rules):
     """
     Check if a GitHub item satisfies the given filtering rules.
     """
@@ -142,9 +143,16 @@ def apply_rules(item: GitHubItem, rules):
     created_at = datetime.fromisoformat(item.created_at.replace('Z', '+00:00')).replace(tzinfo=None)
     comment_dates = [datetime.fromisoformat(comment['created_at'].replace('Z', '+00:00')).replace(tzinfo=None) for comment in item.comments + item.review_comments]
     all_dates = [created_at] + comment_dates
-    if not any(rules['start_date'] <= date <= rules['end_date'] for date in all_dates):
-        logger.info(f"Filtering out '{item.title}' because neither its creation time nor any comment time is within the date range.")
-        return False
+
+    # If interval is set, filter out items outside of the date range
+    if interval > 0:
+        if not any(rules['start_date'] <= date for date in all_dates):
+            logger.info(f"Filtering out '{item.title}' because it is outside of the date range.")
+            return False
+    else:
+        if not any(rules['start_date'] <= date <= rules['end_date'] for date in all_dates):
+            logger.info(f"Filtering out '{item.title}' because neither its creation time nor any comment time is within the date range.")
+            return False
 
     # Comments containing tags of the specified user
     specified_user = rules.get('specified_user', 'EikanWang')
@@ -201,6 +209,7 @@ def main():
     parser.add_argument("--start-date", type=str, default=datetime.utcnow().strftime("%Y-%m-%d"), help="Start date for fetching and filtering issues and PRs (YYYY-MM-DD format)")
     parser.add_argument("--end-date", type=str, default=datetime.utcnow().strftime("%Y-%m-%d"), help="End date for fetching and filtering issues and PRs (YYYY-MM-DD format)")
     parser.add_argument("--number-of-ccer", type=int, default=10, help="Number of CCERs in the comments")
+    parser.add_argument("--interval", type=int, default=0, help="Intervel in hours to fetch the data")
     parser.add_argument("--only-issues", action="store_true", help="Dump only issues (default: dump both issues and PRs)")
     parser.add_argument("--only-prs", action="store_true", help="Dump only pull requests (default: dump both issues and PRs)")
     parser.add_argument("--log-level", type=str, default="WARNING", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
@@ -210,8 +219,20 @@ def main():
 
 
     token = os.getenv("GITHUB_TOKEN")
-    start_date = args.start_date + "T00:00:00Z"
-    end_date = args.end_date + "T23:59:59Z"
+
+    if args.interval > 0:
+        # Get current date and time
+        now = datetime.now()
+        # Get the current date and time in the format of "YYYY-MM-DDTHH:MM:SSZ"
+        current_date_time = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+        # Get the start date by subtracting the interval from the current date and time
+        start_date = now - timedelta(hours=args.interval)
+        start_date = start_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+        # Get the end date by adding the interval to the current date and time
+        end_date = current_date_time
+    else:
+        start_date = args.start_date + "T00:00:00Z"
+        end_date = args.end_date + "T23:59:59Z"
 
     # Parse start and end dates for filtering
     filter_start_date = datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=None)
@@ -231,7 +252,7 @@ def main():
             'end_date': filter_end_date,
             'number_of_ccer': args.number_of_ccer
         }
-        github_items = inquire_github_activities(repo, start_date, end_date, rules)
+        github_items = inquire_github_activities(repo, start_date, end_date, args.interval, rules)
 
         # Print filtered items
         logger.info("Filtered GitHub Items:")
