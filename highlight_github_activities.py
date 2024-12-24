@@ -132,6 +132,8 @@ def inquire_github_activities(repo, start_date, end_date, rules):
         if apply_rules(github_item, rules):
             github_items.append(github_item.serialize())
 
+    return github_items
+
 def apply_rules(item: GitHubItem, rules):
     """
     Check if a GitHub item satisfies the given filtering rules.
@@ -233,10 +235,16 @@ def main():
 
         # Print filtered items
         logger.info("Filtered GitHub Items:")
-        # Serialize all the github_items to a well-formated and pretty-printed JSON string and save the JSON string to a file the file name is "github_items" + start_date + "_" + end_date + ".json"
-        # The json file should be saved in the same directory of this python file
-        with open(f"github_items_{start_date}_{end_date}.json", "w") as f:
-            f.write(json.dumps(github_items, indent=4))
+
+        # Serialize all the github_items to a well-formatted and pretty-printed JSON string
+        # and save the JSON string to a file with full path and the file name is
+        # "github_items" + start_date + "_" + end_date + ".json"
+        # The json file should be saved in the same directory of this python file with full path
+        cur_file_path = os.path.dirname(os.path.abspath(__file__))
+        json_file_path = os.path.join(cur_file_path, f"github_items_{start_date}_{end_date}.json")
+
+        with open(json_file_path, 'w') as f:
+            json.dump(github_items, f, indent=4)
 
 if __name__ == "__main__":
     main()
