@@ -392,7 +392,7 @@ def main():
     parser.add_argument("--end-date", type=str, default=datetime.utcnow().strftime("%Y-%m-%d"), help="End date for fetching and filtering issues and PRs (YYYY-MM-DD format)")
     parser.add_argument("--db-path", type=str, default=None, help="Path to the database folder")
     parser.add_argument("--specified-user", type=str, default="", help="User to look for in comments (default: no filtering)")
-    parser.add_argument("--number-of-ccer", type=int, default=10, help="Number of CCERs in the comments")
+    parser.add_argument("--number-of-ccer", type=int, default=100, help="Number of CCERs in the comments")
     parser.add_argument("--log-level", type=str, default="WARNING", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
     parser.add_argument("--retrieve-only", action="store_true", help="Retrieve data only without filtering or dumping information")
     parser.add_argument("--dump-comments", action="store_true", help="Dump detailed comments and review comments for each item")
@@ -523,6 +523,16 @@ Below are the concatenated summaries:
                 for summary in summaries:
                     print(summary)
                     print()
+
+                cur_file_path = os.path.dirname(os.path.abspath(__file__))
+                # Get current hour in 24H and add the info to the file name. Example,
+                #  - current hour is 3 A.M, then the file name is "github_items_2022-01-01_2022-01-01_03.json"
+                # -  current hour is 3 P.M, then the file name is "github_items_2022-01-01_2022-01-01_15.json"
+                md_file_path = os.path.join(cur_file_path, f"summary_{args.start_date}_{args.end_date}_{datetime.now().hour}.md")
+
+                with open(md_file_path, 'w') as f:
+                    for summary in summaries:
+                        f.writelines(summary)
 
 if __name__ == "__main__":
     main()

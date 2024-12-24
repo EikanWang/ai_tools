@@ -200,7 +200,7 @@ def main():
     parser.add_argument("--repo", type=str, default="pytorch", help="Name of the GitHub repository")
     parser.add_argument("--start-date", type=str, default=datetime.utcnow().strftime("%Y-%m-%d"), help="Start date for fetching and filtering issues and PRs (YYYY-MM-DD format)")
     parser.add_argument("--end-date", type=str, default=datetime.utcnow().strftime("%Y-%m-%d"), help="End date for fetching and filtering issues and PRs (YYYY-MM-DD format)")
-    parser.add_argument("--number-of-ccer", type=int, default=15, help="Number of CCERs in the comments")
+    parser.add_argument("--number-of-ccer", type=int, default=10, help="Number of CCERs in the comments")
     parser.add_argument("--only-issues", action="store_true", help="Dump only issues (default: dump both issues and PRs)")
     parser.add_argument("--only-prs", action="store_true", help="Dump only pull requests (default: dump both issues and PRs)")
     parser.add_argument("--log-level", type=str, default="WARNING", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
@@ -244,7 +244,7 @@ def main():
         # Get current hour in 24H and add the info to the file name. Example,
         #  - current hour is 3 A.M, then the file name is "github_items_2022-01-01_2022-01-01_03.json"
         # -  current hour is 3 P.M, then the file name is "github_items_2022-01-01_2022-01-01_15.json"
-        json_file_path = os.path.join(cur_file_path, f"github_items_{start_date}_{end_date}_{datetime.now().hour}.json")
+        json_file_path = os.path.join(cur_file_path, f"github_items_{args.start_date}_{args.end_date}_{datetime.now().hour}.json")
 
         with open(json_file_path, 'w') as f:
             json.dump(github_items, f, indent=4)
