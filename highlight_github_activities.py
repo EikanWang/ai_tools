@@ -241,7 +241,10 @@ def main():
         # "github_items" + start_date + "_" + end_date + ".json"
         # The json file should be saved in the same directory of this python file with full path
         cur_file_path = os.path.dirname(os.path.abspath(__file__))
-        json_file_path = os.path.join(cur_file_path, f"github_items_{start_date}_{end_date}.json")
+        # Get current hour in 24H and add the info to the file name. Example,
+        #  - current hour is 3 A.M, then the file name is "github_items_2022-01-01_2022-01-01_03.json"
+        # -  current hour is 3 P.M, then the file name is "github_items_2022-01-01_2022-01-01_15.json"
+        json_file_path = os.path.join(cur_file_path, f"github_items_{start_date}_{end_date}_{datetime.now().hour}.json")
 
         with open(json_file_path, 'w') as f:
             json.dump(github_items, f, indent=4)
