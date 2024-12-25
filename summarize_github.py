@@ -537,7 +537,7 @@ Below are the concatenated summaries:
                 #  - current hour is 3 A.M, then the file name is "github_items_2022-01-01_2022-01-01_03.json"
                 #  - current hour is 3 P.M, then the file name is "github_items_2022-01-01_2022-01-01_15.json"
                 file_extension = "md"
-                cur_file_name = f"summary_{cur_date}.{file_extension}"
+                cur_file_name = f"summary_{args.owner}_{args.repo}_{cur_date}.{file_extension}"
                 md_file_path = os.path.join(cur_file_path, cur_file_name)
 
                 with open(md_file_path, 'w') as f:

@@ -273,7 +273,7 @@ def main():
         # -  current hour is 3 P.M, then the file name is "github_items_2022-01-01_2022-01-01_15.json"
         # -  current hour is 0 A.M, then the file name is "github_items_2022-01-01_2022-01-01_00.json"
         file_extension = "json"
-        cur_file_name = f"highlight_{cur_date_file_name}.{file_extension}"
+        cur_file_name = f"highlight_{args.owner}_{args.repo}_{cur_date_file_name}.{file_extension}"
         json_file_path = os.path.join(cur_file_path, cur_file_name)
 
         filter_start_date = filter_start_date.strftime("%Y-%m-%d_%H:%M:%S")
