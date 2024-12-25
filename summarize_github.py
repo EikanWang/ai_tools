@@ -68,7 +68,7 @@ def text_summarize(text_chunks, serving = "DeepSeek", instruction=None, context=
     client = openai.OpenAI(api_key=os.getenv(llm_keys[serving]), base_url=llm_urls[serving])
     if instruction is None:
         instruction = "Summarize the text below:\n\n"
-    max_tokens = 32000
+    max_tokens = 32000 * 2  # 64K tokens
     instruction_num_tokens = count_tokens(instruction)
     chunk_num_tokens = [count_tokens(chunk) for chunk in text_chunks]
     end_id = 0
