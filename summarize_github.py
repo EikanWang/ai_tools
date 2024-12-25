@@ -1,3 +1,4 @@
+import sys
 from github import Github
 from datetime import datetime
 import os
@@ -8,6 +9,11 @@ from dotenv import load_dotenv
 import openai
 import tiktoken
 import sqlite3
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(script_dir)
+
+from mail_util import send_email_with_attachment
 
 load_dotenv()
 
@@ -402,6 +408,7 @@ def main():
     parser.add_argument("--no-summarize", action="store_true", help="Do not summarize the filtered GitHub items")
     parser.add_argument("--serving", type=str, choices=["OpenAI", "DeepSeek"], default="DeepSeek", help="Which serving to be called")
     parser.add_argument("--combine-summaries", action="store_true", help="Combine summaries")
+    parser.add_argument("--send-email", action="store_true", help="Send email with the filtered items")
     args = parser.parse_args()
 
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.WARNING), format='%(asctime)s - %(levelname)s - %(message)s')
@@ -414,6 +421,7 @@ def main():
     token = os.getenv("GITHUB_TOKEN")
     start_date = args.start_date + "T00:00:00Z"
     end_date = args.end_date + "T23:59:59Z"
+    cur_date = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
 
     # Parse start and end dates for filtering
     filter_start_date = datetime.strptime(start_date, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=None)
@@ -527,12 +535,25 @@ Below are the concatenated summaries:
                 cur_file_path = os.path.dirname(os.path.abspath(__file__))
                 # Get current hour in 24H and add the info to the file name. Example,
                 #  - current hour is 3 A.M, then the file name is "github_items_2022-01-01_2022-01-01_03.json"
-                # -  current hour is 3 P.M, then the file name is "github_items_2022-01-01_2022-01-01_15.json"
-                md_file_path = os.path.join(cur_file_path, f"summary_{args.start_date}_{args.end_date}_{datetime.now().hour}.md")
+                #  - current hour is 3 P.M, then the file name is "github_items_2022-01-01_2022-01-01_15.json"
+                file_extension = "md"
+                cur_file_name = f"summary_{cur_date}.{file_extension}"
+                md_file_path = os.path.join(cur_file_path, cur_file_name)
 
                 with open(md_file_path, 'w') as f:
+                    filter_start_date = filter_start_date.strftime("%Y-%m-%d %H-%M-%S")
+                    filter_end_date = filter_end_date.strftime("%Y-%m-%d %H-%M-%S")
+                    f.write(f"Summary of {args.owner}/{args.repo} from {filter_start_date} to {filter_end_date}:\n\n")
                     for summary in summaries:
                         f.writelines(summary)
+
+                if args.send_email:
+                    send_email_with_attachment(
+                        file_path=md_file_path,
+                        subject=f"{args.owner}/{args.repo} - {cur_file_name}",
+                        from_email=f"summarize_{args.owner}_{args.repo}@intel.com",
+                        to_email="eikan.wang@intel.com"
+                    )
 
 if __name__ == "__main__":
     main()

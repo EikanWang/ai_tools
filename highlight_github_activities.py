@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import sys
 from github import Github
 from datetime import datetime, timedelta
 import os
@@ -6,6 +7,11 @@ import argparse
 import logging
 from dotenv import load_dotenv
 import json
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(script_dir)
+
+from mail_util import send_email_with_attachment
 
 load_dotenv()
 
@@ -211,6 +217,7 @@ def main():
     parser.add_argument("--number-of-ccer", type=int, default=10, help="Number of CCERs in the comments")
     parser.add_argument("--interval", type=int, default=0, help="Intervel in hours to fetch the data")
     parser.add_argument("--only-issues", action="store_true", help="Dump only issues (default: dump both issues and PRs)")
+    parser.add_argument("--send-email", action="store_true", help="Send email with the filtered items")
     parser.add_argument("--only-prs", action="store_true", help="Dump only pull requests (default: dump both issues and PRs)")
     parser.add_argument("--log-level", type=str, default="WARNING", help="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
     args = parser.parse_args()
@@ -220,9 +227,11 @@ def main():
 
     token = os.getenv("GITHUB_TOKEN")
 
+    # Get current date and time
+    now = datetime.now()
+    cur_date_file_name = now.strftime('%Y-%m-%d %H-%M-%S')
+
     if args.interval > 0:
-        # Get current date and time
-        now = datetime.now()
         # Get the current date and time in the format of "YYYY-MM-DDTHH:MM:SSZ"
         current_date_time = now.strftime("%Y-%m-%dT%H:%M:%SZ")
         # Get the start date by subtracting the interval from the current date and time
@@ -254,9 +263,6 @@ def main():
         }
         github_items = inquire_github_activities(repo, start_date, end_date, args.interval, rules)
 
-        # Print filtered items
-        logger.info("Filtered GitHub Items:")
-
         # Serialize all the github_items to a well-formatted and pretty-printed JSON string
         # and save the JSON string to a file with full path and the file name is
         # "github_items" + start_date + "_" + end_date + ".json"
@@ -265,10 +271,25 @@ def main():
         # Get current hour in 24H and add the info to the file name. Example,
         #  - current hour is 3 A.M, then the file name is "github_items_2022-01-01_2022-01-01_03.json"
         # -  current hour is 3 P.M, then the file name is "github_items_2022-01-01_2022-01-01_15.json"
-        json_file_path = os.path.join(cur_file_path, f"github_items_{args.start_date}_{args.end_date}_{datetime.now().hour}.json")
+        # -  current hour is 0 A.M, then the file name is "github_items_2022-01-01_2022-01-01_00.json"
+        file_extension = "json"
+        cur_file_name = f"highlight_{cur_date_file_name}.{file_extension}"
+        json_file_path = os.path.join(cur_file_path, cur_file_name)
+
+        filter_start_date = filter_start_date.strftime("%Y-%m-%d_%H:%M:%S")
+        filter_end_date = filter_end_date.strftime("%Y-%m-%d_%H:%M:%S")
 
         with open(json_file_path, 'w') as f:
+            github_items = [{"File Information": f"Highlights of {args.owner}/{args.repo} from {filter_start_date} to {filter_end_date}"}] + github_items
             json.dump(github_items, f, indent=4)
+
+        if args.send_email:
+            send_email_with_attachment(
+                file_path=json_file_path,
+                subject=f"{args.owner}/{args.repo} - {cur_file_name}",
+                from_email=f"highlight_{args.owner}_{args.repo}@intel.com",
+                to_email="eikan.wang@intel.com"
+            )
 
 if __name__ == "__main__":
     main()
