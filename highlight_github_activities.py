@@ -229,7 +229,7 @@ def main():
 
     # Get current date and time
     now = datetime.now()
-    cur_date_file_name = now.strftime('%Y-%m-%d %H-%M-%S')
+    cur_date_file_name = now.strftime('%Y-%m-%d_%H-%M-%S')
 
     if args.interval > 0:
         # Get the current date and time in the format of "YYYY-MM-DDTHH:MM:SSZ"
