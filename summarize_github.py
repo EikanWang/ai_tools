@@ -80,8 +80,8 @@ def text_summarize(text_chunks, serving = "DeepSeek", instruction=None, context=
             num_tokens += chunk_num_tokens[end_id]
             end_id += 1
         assert end_id > start_id
-        if start_id == end_id - 1:
-            logger.warning(f"Chunk {start_id} is too large to fit in the max_tokens limit.")
+        if num_tokens > max_tokens:
+            logger.warning(f"Chunk {start_id} is too large to fit in the max_tokens={max_tokens} limit.")
             text = text_chunks[start_id][:max_tokens - instruction_num_tokens]
         else:
             text = separator.join(text_chunks[start_id:end_id])
