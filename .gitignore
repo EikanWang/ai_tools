@@ -1,1 +1,8 @@
 .env
+*.json
+*.md
+*.log
+*.dat
+*.dir
+*.bak
+__pycache__

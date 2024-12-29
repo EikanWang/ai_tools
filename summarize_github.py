@@ -552,7 +552,7 @@ Below are the concatenated summaries:
                         file_path=md_file_path,
                         subject=f"{args.owner}/{args.repo} - {cur_file_name}",
                         from_email=f"summarize_{args.owner}_{args.repo}@intel.com",
-                        to_email="eikan.wang@intel.com"
+                        to_email="eikan.wang@intel.com,liangang.zhang@intel.com"
                     )
 
 if __name__ == "__main__":
