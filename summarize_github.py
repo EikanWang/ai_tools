@@ -14,6 +14,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(script_dir)
 
 from mail_util import send_email_with_attachment
+from utils import get_tokens
 
 load_dotenv()
 
@@ -65,7 +66,9 @@ def summarize_chunk(client, chunk, prompt_instructions="", max_summary_tokens=No
         return ""
 
 def text_summarize(text_chunks, serving = "DeepSeek", instruction=None, context=None, separator="\n"):
-    client = openai.OpenAI(api_key=os.getenv(llm_keys[serving]), base_url=llm_urls[serving])
+    _, deep_seek_api_key, openai_api_key = get_tokens()
+    api_key = openai_api_key if serving == "OpenAI" else deep_seek_api_key
+    client = openai.OpenAI(api_key=api_key, base_url=llm_urls[serving])
     if instruction is None:
         instruction = "Summarize the text below:\n\n"
     max_tokens = 32000 * 2  # 64K tokens
@@ -418,7 +421,7 @@ def main():
     else:
         db_path = args.db_path
 
-    token = os.getenv("GITHUB_TOKEN")
+    token, _, _ = get_tokens()
     start_date = args.start_date + "T00:00:00Z"
     end_date = args.end_date + "T23:59:59Z"
     cur_date = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')

@@ -13,6 +13,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(script_dir)
 
 from mail_util import send_email_with_attachment
+from utils import get_tokens
 
 load_dotenv()
 
@@ -181,7 +182,7 @@ def apply_rules(item: GitHubItem, interval, rules):
         return re.search(pattern, item, re.IGNORECASE) is not None
 
     # Comments containing tags of the specified user
-    _specified_users = rules.get('specified_user', ['EikanWang', 'etaf', 'xytintel', 'chuanqi129', 'guangyey', 'liangan1', 'ZhaoqiongZ', 'zhangxiaoli73', 'dvrogozh', 'jansel'])
+    _specified_users = rules.get('specified_user', ['EikanWang', 'etaf', 'xytintel', 'chuanqi129', 'ZhiweiYan-96', 'guangyey', 'liangan1', 'ZhaoqiongZ', 'zhangxiaoli73', 'dvrogozh', 'jansel'])
     # Lambda function to check if a given keywork is in the title
     _keyword_in_title = lambda : any(_contains_pattern(keyword, item.title.lower()) for keyword in _intel_upstreaming_key_words)
     # Lambda function to check if a given keywork is in the description
@@ -198,6 +199,8 @@ def apply_rules(item: GitHubItem, interval, rules):
     _is_commented_by_intel_folks = lambda: any(comment['author_github_user'].email.endswith('@intel.com') or comment['author'] in _specified_users for comment in item.comments)
     # Lamda function to check if the email address of the submitter is Intel email address while Intel email address is in the format of "${user_name}@intel.com"
     _is_submitted_by_intel_folks = lambda: item.submitter_github_user.email.endswith('@intel.com') or item.submitter_github_user.login in _specified_users
+
+    # TODO: Monitor assignees
 
     # Ignore titles starting with "DISABLED"
     if item.title.startswith("DISABLED"):
@@ -272,8 +275,7 @@ def main():
 
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.WARNING), format='%(asctime)s - %(levelname)s - %(message)s')
 
-
-    token = os.getenv("GITHUB_TOKEN")
+    token, _, _ = get_tokens()
 
     # Get current date and time
     now = datetime.now()
