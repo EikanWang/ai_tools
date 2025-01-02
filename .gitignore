@@ -6,3 +6,11 @@
 *.dir
 *.bak
 __pycache__
+highlight_github_activities.sh
+summarize_github.sh
+summarize_github_cutlass.sh
+summarize_github_flashinfer.sh
+summarize_github_hf.sh
+summarize_github_sglang.sh
+summarize_github_triton.sh
+summarize_github_vllm.sh
